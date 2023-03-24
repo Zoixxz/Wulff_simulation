@@ -1,68 +1,66 @@
 import random
+import igraph as ig
 from scipy.stats import bernoulli
 import ig_percoSimIterationAux as itaux
 
 
-def wulffIteration_edges(G, boundary_edges, interior_edges, p, N):
+def wulffIteration_edges(G, boundary_vertices, interior_vertices, p, N):
 
-    interior_edges = list(set(interior_edges))
-    boundary_edges = list(set(boundary_edges))
+    interior_vertices = list(set(interior_vertices))
+    boundary_vertices = list(set(boundary_vertices))
 
-    e_interior = random.choice(interior_edges)
-    e_interior_ig = G.get_eid(itaux.coord_to_array(N, e_interior[0]),
-                              itaux.coord_to_array(N, e_interior[1]))
+    v_interior = random.choice(interior_vertices)
+    v_interior_ig = itaux.coord_to_array(N, v_interior)
 
-    e_boundary = random.choice(boundary_edges)
+    v_boundary = random.choice(boundary_vertices)
 
-    edges_interior_updated = interior_edges[:]
-    edges_boundary_updated = boundary_edges[:]
+    vertices_interior_updated = interior_vertices[:]
+    vertices_boundary_updated = boundary_vertices[:]
 
-    edges_interior_updated.append(e_boundary)
-    F = G.copy()
+    vertices_interior_updated.append(v_boundary)
     # remove the boundary edge from the boundary list (is now in interior)
-    for i in [0, 1]:
-        try:
-            edges_boundary_updated.remove((e_boundary[i], e_boundary[1 - i]))
-        except ValueError:
-            pass
-    edges_boundary_updated.append(e_interior)
+    try:
+        vertices_boundary_updated.remove(v_boundary)
+    except ValueError:
+        pass
 
-    G.add_edge(itaux.coord_to_array(N, e_boundary[0]),
-               itaux.coord_to_array(N, e_boundary[1]))
+    vertices_boundary_updated.append(v_interior)
 
-    # remove the interior edge from the interioir list (is now in boundary)
-    for i in [0, 1]:
-        try:
-            edges_interior_updated.remove((e_interior[i], e_interior[1 - i]))
-        except ValueError:
-            pass
+    # add the edges to the graph which are in the cluster and connecting
+    # the boundary vertex (as is approprate for siter perco)
+    neighbours_v_boundary = itaux.neighbours(v_boundary)
+    edges_added = []
+    # remove the interior edge from the interior list (is now in boundary)
+    for w in neighbours_v_boundary:
+        if w in interior_vertices:
+            G.add_edge(itaux.coord_to_array(N, w),
+                       itaux.coord_to_array(N, v_boundary))
+            edges_added.append((itaux.coord_to_array(N, w),
+                                itaux.coord_to_array(N, v_boundary)))
 
-    bridges = G.bridges()
-    e_boundary_ig = G.get_eid(itaux.coord_to_array(N, e_boundary[0]),
-                              itaux.coord_to_array(N, e_boundary[1]))
+    vertices_interior_updated.remove(v_interior)
+
+    articulation_points = G.articulation_points()
 
     # check the connectivite after adding the boundary edge
-    if(e_interior_ig in bridges):
-        if(not itaux.isLeaf_edge(N, G, e_interior)):
-            G.delete_edges([e_boundary_ig])
-            return G, boundary_edges, interior_edges
+    if(v_interior_ig in articulation_points):
+        G.delete_edges(edges_added)
+        return G, boundary_vertices, interior_vertices
 
-    e_interior_ig_updated = G.get_eid(itaux.coord_to_array(N, e_interior[0]),
-                                      itaux.coord_to_array(N, e_interior[1]))
+    e_interior_ig_updated = G.incident(itaux.coord_to_array(N, v_interior))
     incident_edges = G.incident(itaux.coord_to_array(N, (0, 0)))
 
     # check that the vertex at (0, 0) remains in the cluster
-    if(e_interior_ig_updated in incident_edges
+    if(any(e in incident_edges) for e in e_interior_ig_updated
        and len(list(incident_edges)) <= 1):
-        G.delete_edges([e_boundary_ig])  # must not fail silently
-        return G, boundary_edges, interior_edges
+        G.delete_edges(edges_added)  # must not fail silently
+        return G, boundary_vertices, interior_vertices
 
     # update the boundary and graph
     edges_removed = []
     # updating boundary by adding possibly new boundary edges
-    e_boundary_ig = G.get_eid(itaux.coord_to_array(N, e_boundary[0]),
-                              itaux.coord_to_array(N, e_boundary[1]))
-    e = G.es[e_boundary_ig]
+    v_boundary_ig = G.get_vid(itaux.coord_to_array(N, v_boundary))
+    v = G.vs[v_boundary_ig]
     V = [e.source, e.target]
     for v in V:
         nbrs_v = itaux.neighbours_vid(N, v)
@@ -70,6 +68,9 @@ def wulffIteration_edges(G, boundary_edges, interior_edges, p, N):
             if(not G.are_connected(v, w)):
                 edges_boundary_updated.append((itaux.array_to_coord(N, v),
                                                itaux.array_to_coord(N, w)))
+    for w in itaux.neigbours(v_boundary):
+        if(not w in ig.neighbours(G, v_boundary_ig)):
+            vertices_boundary_updated.append(itaux.array_to_coord(N, w))
 
     # updating boundary by removing old boundary edges not indicent to cluster
     # anymore
@@ -95,7 +96,7 @@ def wulffIteration_edges(G, boundary_edges, interior_edges, p, N):
     edges_removed.append((e_interior[0], e_interior[1]))
     G.delete_edges([e_interior_ig])
 
-    delta_boundary = len(edges_boundary_updated) - len(boundary_edges)
+    delta_boundary = -(len(edges_boundary_updated) - len(boundary_edges))
 
     transition_rate = itaux.transition_rate_edges(p, delta_boundary)
     # transitionProba = transition_rate / (1 + transition_rate)
