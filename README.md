@@ -1,5 +1,5 @@
 # Wulff_simulation
-Code for the simulating large but finite clusters for Bernoulli bond percolation on the $\mathbb{Z}^2$ lattice.
+Code for simulating large but finite clusters for Bernoulli bond percolation on the $\mathbb{Z}^2$ lattice.
 The library used for the simulation is iGraph which is implemented in C. For a performance comparison between different libraries see https://graph-tool.skewed.de/performance.
 
 How does the algorithm work?
