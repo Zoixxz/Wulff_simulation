@@ -14,7 +14,7 @@ What is in the folders?
 
 "gif_creator.py" is a short pyhton code which can be used to create GIFs using the clusters generated via simulation.
 
-How are the files in "reversible_MCs_simulatio" interconnected?
+How are the files in "reversible_MCs_simulation" interconnected?
 
 - "paralell_data_evalutation.py" is the file containing the main function where the parameters of the simulation can be specified.
 - "ig_percoSimAux.py" contains functions needed for the initalisation of a cluster using a norm. The 1-norm and max-norm are implemented.
